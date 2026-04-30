@@ -1,0 +1,41 @@
+name: PyPI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sufof/__init__.py'
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: |
+          make venv
+          uv pip install build twine
+      - name: Build
+        run: uv run python -m build
+      - name: Publish
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.pypi_token }}
+        run: |
+          uv run twine upload dist/* --skip-existing
+      - name: Tag
+        run: |
+          TAG=$(uv run python -c 'from sufof import __version__; print(__version__)' | sed 's/^/v/')
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git tag -a $TAG -m"Release $TAG"
+          git push origin $TAG --force
